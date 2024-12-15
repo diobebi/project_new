@@ -1,0 +1,8 @@
+data/
+figures/
+trained_models/
+tutorial/
+results/
+studies/
+.ipynb_checkpoints/
+scripts/.ipynb_checkpoints/
