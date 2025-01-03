@@ -172,6 +172,8 @@ class Model(nn.Module):
         self.embed_d = nn.Sequential(nn.LazyLinear(embed_dim), nn.ReLU())
         self.embed_c = nn.Sequential(nn.LazyLinear(embed_dim), nn.ReLU())
     def forward(self, c, d):
+        print(c.shape)
+        print(d.shape)
         return self.resnet(self.embed_d(d) + self.embed_c(c))
     
 def evaluate_step(model, loader, metrics, device):
@@ -194,8 +196,8 @@ def train_step(model, optimizer, loader, config, device):
 
         #-------------------
         print(x[0].shape)
-
-
+        print(x[1].shape)
+        print(x[2].shape)
         #-------------------
         optimizer.zero_grad()
         out = model(x[0].to(device), x[1].to(device))
@@ -218,6 +220,7 @@ def custom_collate_fn(batch):
 
         # Pad Cell Features to match max_len (rows only)
         padded_cell_features = torch.nn.functional.pad(cell_features, (0, 0, 0, pad_len))  # Pad rows
+        padded_drug_feature = torch.nn.functional.pad(drug_features, (0, 0, 0, pad_len))
 
         # Pad associated vectors to match max_len
         padded_labels = torch.nn.functional.pad(labels, (0, pad_len))
@@ -225,7 +228,7 @@ def custom_collate_fn(batch):
         padded_drug_index = torch.nn.functional.pad(drug_index, (0, pad_len))
         padded_cell_indices = torch.nn.functional.pad(cell_indices, (0, pad_len))
 
-        padded_batch.append((padded_cell_features, drug_features, padded_target,
+        padded_batch.append((padded_cell_features, padded_drug_feature, padded_target,
                              padded_drug_index, padded_cell_indices, padded_labels))
 
     # Stack all tensors
