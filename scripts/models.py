@@ -193,8 +193,9 @@ def train_step(model, optimizer, loader, config, device):
     for x in loader:
 
         #-------------------
-        
         print(x[0].shape)
+
+
         #-------------------
         optimizer.zero_grad()
         out = model(x[0].to(device), x[1].to(device))
@@ -208,7 +209,7 @@ def train_step(model, optimizer, loader, config, device):
 
 def custom_collate_fn(batch):
     # Determine the maximum length in the batch
-    max_len = max(item[1].size(0) for item in batch)  # item[1] is Cell Features
+    max_len = max(item[4].size(0) for item in batch)  # item[1] is Cell Features
     print(max_len)
 
     padded_batch = []
