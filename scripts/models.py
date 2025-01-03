@@ -191,7 +191,11 @@ def train_step(model, optimizer, loader, config, device):
     ls = []
     model.train()
     for x in loader:
-        # print(x[2].shape)
+
+        #-------------------
+        
+        print(x[0].shape)
+        #-------------------
         optimizer.zero_grad()
         out = model(x[0].to(device), x[1].to(device))
         l = loss(out.squeeze(), x[2].to(device).squeeze())
@@ -201,16 +205,51 @@ def train_step(model, optimizer, loader, config, device):
         optimizer.step()
     return np.mean(ls)
 
+
+def custom_collate_fn(batch):
+    # Determine the maximum length in the batch
+    max_len = max(item[1].size(0) for item in batch)  # item[1] is Cell Features
+    print(max_len)
+
+    padded_batch = []
+    for cell_features, drug_features, target, drug_index, cell_indices, labels in batch:
+        pad_len = max_len - cell_features.size(0)
+
+        # Pad Cell Features to match max_len (rows only)
+        padded_cell_features = torch.nn.functional.pad(cell_features, (0, 0, 0, pad_len))  # Pad rows
+
+        # Pad associated vectors to match max_len
+        padded_labels = torch.nn.functional.pad(labels, (0, pad_len))
+        padded_target = torch.nn.functional.pad(target, (0, pad_len))
+        padded_drug_index = torch.nn.functional.pad(drug_index, (0, pad_len))
+        padded_cell_indices = torch.nn.functional.pad(cell_indices, (0, pad_len))
+
+        padded_batch.append((padded_cell_features, drug_features, padded_target,
+                             padded_drug_index, padded_cell_indices, padded_labels))
+
+    # Stack all tensors
+    cell_features = torch.stack([item[0] for item in padded_batch])
+    drug_features = torch.stack([item[1] for item in padded_batch])
+    target = torch.stack([item[2] for item in padded_batch])
+    drug_index = torch.stack([item[3] for item in padded_batch])
+    cell_indices = torch.stack([item[4] for item in padded_batch])
+    labels = torch.stack([item[5] for item in padded_batch])
+
+    return cell_features, drug_features, target, drug_index, cell_indices, labels
+
+
 def train_model(config, train_dataset, validation_dataset=None, use_momentum=True, callback_epoch = None):
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                            batch_size=config["optimizer"]["batch_size"],
                                            drop_last=True,
-                                          shuffle=True)
+                                          shuffle=True,
+                                          collate_fn=custom_collate_fn)
     if validation_dataset is not None:
         val_loader = torch.utils.data.DataLoader(validation_dataset,
                                                batch_size=config["optimizer"]["batch_size"],
                                                drop_last=False,
-                                              shuffle=False)
+                                              shuffle=False,
+                                              collate_fn=custom_collate_fn)
     model = Model(**config["model"])
     optimizer = torch.optim.Adam(model.parameters(), config["optimizer"]["learning_rate"])
     device = torch.device(config["env"]["device"])
