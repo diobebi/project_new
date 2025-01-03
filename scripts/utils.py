@@ -57,25 +57,25 @@ class OmicsDataset_drugwise(Dataset):
         
         # Convert to tensors
         drug_features = Tensor(self.drug_dict[drug_id])  # Drug features
-        drug_features = drug_features.repeat(1000, 1)  # Repeat drug features for all cell lines
+        # drug_features = drug_features.repeat(1000, 1)  # Repeat drug features for all cell lines
         # cell_features = Tensor([self.omic_dict[cell_id] for cell_id in cell_ids])  # All cell features
         cell_features = torch.stack([self.omic_dict[cell_id].clone().detach().float() for cell_id in cell_ids])  # All cell features
 
 
-        cell_features = self.pad_tensor(cell_features, 1000, 0)
+        #xcell_features = self.pad_tensor(cell_features, 1000, 0)
 
         labels = Tensor(labels)  # Labels as a tensors
-        labels = self.pad_tensor(labels, 1000, 0)
+        #labels = self.pad_tensor(labels, 1000, 0)
 
         target = Tensor(target)
-        target = self.pad_tensor(target, 1000, 0)
+        #target = self.pad_tensor(target, 1000, 0)
 
         cell_num = len(labels)
 
         drug_index = Tensor([self.drug_mapped_ids[drug_id]])  # Drug index
         drug_index = drug_index.repeat(cell_num)
         cell_indices = Tensor([self.cell_mapped_ids[cell_id] for cell_id in cell_ids])  # Cell indices
-        cell_indices = self.pad_tensor(cell_indices, 1000, 0)
+        #cell_indices = self.pad_tensor(cell_indices, 1000, 0)
 
         return (cell_features , 
                 drug_features, 
