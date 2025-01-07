@@ -156,8 +156,12 @@ class ResNet(nn.Module):
                                      nn.Dropout(dropout),
                                      nn.Linear(hidden_dim, embed_dim)))
         self.lin = nn.Linear(embed_dim, 1)
+        
     def forward(self, x):
         for l in self.mlps:
+            '''
+            print(x.shape)
+            '''
             x = (l(x) + x)/2
         return self.lin(x)
     
@@ -172,7 +176,14 @@ class Model(nn.Module):
         self.embed_d = nn.Sequential(nn.LazyLinear(embed_dim), nn.ReLU())
         self.embed_c = nn.Sequential(nn.LazyLinear(embed_dim), nn.ReLU())
     def forward(self, c, d):
-        
+        '''
+        print("c", c.shape)
+        print("d", d.shape)
+        print("#-----------------")
+        print("c.embed", self.embed_c(c).shape)
+        print("d.embed", self.embed_d(d).shape)
+        print("resnet", (self.embed_d(d) + self.embed_c(c)).shape)
+        '''
         return self.resnet(self.embed_d(d) + self.embed_c(c))
     
 def evaluate_step(model, loader, metrics, device):
