@@ -163,7 +163,7 @@ class ResNet(nn.Module):
             print(x.shape)
             '''
             x = (l(x) + x)/2
-        return self.lin(x)
+        return self.lin(x), x
     
 class Model(nn.Module):
     def __init__(self, embed_dim=256,
@@ -200,12 +200,19 @@ def evaluate_step(model, loader, metrics, device):
 
 def train_step(model, optimizer, loader, config, device):
     loss = nn.MSELoss()
+    contrastive_loss = nn.CosineEmbeddingLoss()
     ls = []
     model.train()
     for x in loader:
         optimizer.zero_grad()
-        out = model(x[0].to(device), x[1].to(device))
-        l = loss(out.squeeze(), x[2].to(device).squeeze())
+        # print(x[0].shape)
+        # print(x[1].shape)
+        out1, v1 = model(x[0].to(device), x[1].to(device))
+        out2, v2 = model(x[6].to(device), x[7].to(device))
+        l1 = loss(out1.squeeze(), x[2].to(device).squeeze())
+        l2 = loss(out2.squeeze(), x[8].to(device).squeeze())
+        l3 = contrastive_loss(v1, v2, x[9].to(device).squeeze())
+        l = (l1 + l2)/2 + 0.3 * l3
         l.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), config["optimizer"]["clip_norm"])
         ls += [l.item()]
