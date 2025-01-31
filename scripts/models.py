@@ -186,6 +186,30 @@ class Model(nn.Module):
         '''
         return self.resnet(self.embed_d(d) + self.embed_c(c))
     
+class ContrastiveMetapathLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x, y):
+        num_batch_elements = y.max()//2
+        num_batch_elements = y.size(0)
+        #print(num_batch_elements)
+        cumsum = 0
+        for i in range(num_batch_elements):
+            sensitive = x[y==2] # even labels are sensitive against a given drug
+            n_sensitive = sensitive.shape[0]
+            resistant = x[y==1] # odd labels are sensitive against a given drug
+            n_resistant = resistant.shape[0]
+            if n_sensitive > 0:
+                cumsum += ((sensitive.unsqueeze(-3) - sensitive.unsqueeze(-2))**2).sum().sqrt() / (n_sensitive * n_sensitive)
+
+            if n_resistant > 0:
+                cumsum += ((resistant.unsqueeze(-3) - resistant.unsqueeze(-2))**2).sum().sqrt() / (n_resistant * n_resistant)
+
+            if n_sensitive > 0 and n_resistant > 0:
+                cumsum += -(((resistant.unsqueeze(-2) - sensitive.unsqueeze(-3))**2).sum().sqrt()) / (n_resistant * n_sensitive) 
+            
+            return cumsum
+                
 def evaluate_step(model, loader, metrics, device):
     metrics.increment()
     model.eval()
@@ -200,19 +224,15 @@ def evaluate_step(model, loader, metrics, device):
 
 def train_step(model, optimizer, loader, config, device):
     loss = nn.MSELoss()
-    contrastive_loss = nn.CosineEmbeddingLoss()
+    contrastive_loss = ContrastiveMetapathLoss()
     ls = []
     model.train()
     for x in loader:
         optimizer.zero_grad()
-        # print(x[0].shape)
-        # print(x[1].shape)
         out1, v1 = model(x[0].to(device), x[1].to(device))
-        out2, v2 = model(x[6].to(device), x[7].to(device))
-        l1 = loss(out1.squeeze(), x[2].to(device).squeeze())
-        l2 = loss(out2.squeeze(), x[8].to(device).squeeze())
-        l3 = contrastive_loss(v1, v2, x[9].to(device).squeeze())
-        l = (l1 + l2)/2 + 0.3 * l3
+        c_l = contrastive_loss(v1, x[5].to(device).squeeze())
+        # print(c_l)
+        l = loss(out1.squeeze(), x[2].to(device).squeeze())
         l.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), config["optimizer"]["clip_norm"])
         ls += [l.item()]
