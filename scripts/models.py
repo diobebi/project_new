@@ -215,7 +215,7 @@ def evaluate_step(model, loader, metrics, device):
     model.eval()
     for x in loader:
         with torch.no_grad():
-            out = model(x[0].to(device), x[1].to(device))
+            out, _ = model(x[0].to(device), x[1].to(device))
             metrics.update(out.squeeze(),
                            x[2].to(device).squeeze(),
                            cell_lines = x[3].to(device).squeeze().to(device),
@@ -231,9 +231,11 @@ def train_step(model, optimizer, loader, config, device):
         optimizer.zero_grad()
         out1, v1 = model(x[0].to(device), x[1].to(device))
         c_l = contrastive_loss(v1, x[5].to(device).squeeze())
-        # print(c_l)
+        #print(c_l)
         l = loss(out1.squeeze(), x[2].to(device).squeeze())
-        l.backward()
+        #print(l)
+        l_with_cl = l + config["optimizer"]["c_alpha"]*c_l
+        l_with_cl.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), config["optimizer"]["clip_norm"])
         ls += [l.item()]
         optimizer.step()
