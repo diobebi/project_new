@@ -187,28 +187,46 @@ class Model(nn.Module):
         return self.resnet(self.embed_d(d) + self.embed_c(c))
     
 class ContrastiveMetapathLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, eps=1e-8):
         super().__init__()
+        self.eps = eps  # To prevent sqrt(0) in case of zero distances
+
     def forward(self, x, y):
-        num_batch_elements = y.max()//2
         num_batch_elements = y.size(0)
-        #print(num_batch_elements)
         cumsum = 0
         for i in range(num_batch_elements):
-            sensitive = x[y==2] # even labels are sensitive against a given drug
+            sensitive = x[y == ((i+1)*2)]  # Even labels
             n_sensitive = sensitive.shape[0]
-            resistant = x[y==1] # odd labels are sensitive against a given drug
+            resistant = x[y == (i*2 + 1)]  # Odd labels
             n_resistant = resistant.shape[0]
+
+            #print("sensitive", sensitive.shape)
+            #print("resistant", resistant.shape)
+            #print(sensitive.unsqueeze(-3).shape)
+            #print(sensitive.unsqueeze(-2).shape)
+
+            # Intra-sensitive term
             if n_sensitive > 0:
-                cumsum += ((sensitive.unsqueeze(-3) - sensitive.unsqueeze(-2))**2).sum().sqrt() / (n_sensitive * n_sensitive)
+                # Compute pairwise Euclidean distances
+                sensitive_dist = torch.cdist(sensitive, sensitive, p=2)  # (n_s, n_s)
+                # Sum all distances (excluding self-pairs by subtracting diagonal sum)
+                sum_sensitive = (sensitive_dist.sum() - torch.diag(sensitive_dist).sum()) / 2
+                # Divide by number of unique pairs (n*(n-1)/2)
+                cumsum += sum_sensitive / max(1, n_sensitive * (n_sensitive - 1) / 2)
 
+            # Intra-resistant term
             if n_resistant > 0:
-                cumsum += ((resistant.unsqueeze(-3) - resistant.unsqueeze(-2))**2).sum().sqrt() / (n_resistant * n_resistant)
+                resistant_dist = torch.cdist(resistant, resistant, p=2)
+                sum_resistant = (resistant_dist.sum() - torch.diag(resistant_dist).sum()) / 2
+                cumsum += sum_resistant / max(1, n_resistant * (n_resistant - 1) / 2)
 
+            # Inter-sensitive-resistant term
             if n_sensitive > 0 and n_resistant > 0:
-                cumsum += -(((resistant.unsqueeze(-2) - sensitive.unsqueeze(-3))**2).sum().sqrt()) / (n_resistant * n_sensitive) 
-            
-            return cumsum
+                inter_dist = torch.cdist(sensitive, resistant, p=2)  # (n_s, n_r)
+                sum_inter = inter_dist.sum()
+                cumsum -= sum_inter / (n_sensitive * n_resistant)
+
+        return cumsum
                 
 def evaluate_step(model, loader, metrics, device):
     metrics.increment()
