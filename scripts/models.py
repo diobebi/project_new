@@ -192,7 +192,10 @@ class ContrastiveMetapathLoss(nn.Module):
         self.eps = eps  # To prevent sqrt(0) in case of zero distances
 
     def forward(self, x, y):
-        num_batch_elements = y.size(0)
+        #num_batch_elements = y.size(0)
+        
+        #print(y.max().item())
+        num_batch_elements = int(y.max().item()//2)
         cumsum = 0
         for i in range(num_batch_elements):
             sensitive = x[y == ((i+1)*2)]  # Even labels
